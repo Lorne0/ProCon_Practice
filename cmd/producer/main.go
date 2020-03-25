@@ -1,7 +1,9 @@
 package main
 
-import "fmt"
+import "procon"
 
 func main() {
-	fmt.Println("I'm in producer")
+	WeatherBureau := procon.NewProducer()
+	data := map[string]interface{}{"weather": "sunny", "temperature": "23"}
+	WeatherBureau.Produce(":7122", "weather", data)
 }

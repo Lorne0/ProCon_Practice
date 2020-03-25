@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
+	"procon"
 )
 
 func main() {
-	fmt.Println("I'm in broker")
+	procon.StartBroker(":7122")
 
 }
