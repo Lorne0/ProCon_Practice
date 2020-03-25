@@ -18,13 +18,13 @@ import (
 type Topic struct {
 	Name string
 	MQ   []interface{}
-	mu   *sync.Mutex
+	mu   *sync.RWMutex
 }
 
 // Broker defines struct of broker
 type Broker struct {
 	topics map[string]*Topic
-	mu     *sync.Mutex
+	mu     *sync.RWMutex
 }
 
 type brokerServer struct {
@@ -43,12 +43,13 @@ func (bs *brokerServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // NewTopic adds new topic
 func (b *Broker) NewTopic(name string) {
-	mu := &sync.Mutex{}
+	mu := &sync.RWMutex{}
 	t := &Topic{
 		Name: name,
 		MQ:   make([]interface{}, 0),
 		mu:   mu,
 	}
+	// Use mutex lock to lock writing
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.topics[name] = t
@@ -58,8 +59,9 @@ func (b *Broker) readTopic(topic string, s int, e int) ([]interface{}, int, erro
 	if _, ok := b.topics[topic]; !ok {
 		return nil, -1, errors.New("the topic is not in broker")
 	}
-	b.topics[topic].mu.Lock()
-	defer b.topics[topic].mu.Unlock()
+	// Use share lock instead of mutex lock to let multiple users read
+	b.topics[topic].mu.RLock()
+	defer b.topics[topic].mu.RUnlock()
 	mq := b.topics[topic].MQ
 
 	if e == -1 {
@@ -78,7 +80,9 @@ func (b *Broker) readTopic(topic string, s int, e int) ([]interface{}, int, erro
 		return nil, -1, errors.New("end offset should be less than topic size")
 	}
 
-	return mq[s:e], e, nil
+	cmq := make([]interface{}, e-s)
+	copy(cmq, mq[s:e])
+	return cmq, e, nil
 }
 
 func (bs *brokerServer) consumerHandler(w http.ResponseWriter, r *http.Request) {
@@ -133,6 +137,7 @@ func (b *Broker) writeTopic(data postData) int {
 		b.NewTopic(data.Topic)
 	}
 	topic, _ := b.topics[data.Topic]
+	// Use mutex lock to lock writing
 	topic.mu.Lock()
 	defer topic.mu.Unlock()
 	topic.MQ = append(topic.MQ, data.Data)
@@ -182,7 +187,7 @@ func wait() {
 
 // StartBroker create a broker and start the server
 func StartBroker(p string) {
-	mu := &sync.Mutex{}
+	mu := &sync.RWMutex{}
 	topics := make(map[string]*Topic)
 	b := Broker{
 		topics: topics,
