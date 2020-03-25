@@ -208,7 +208,7 @@ func StartBroker(p string) {
 	}()
 
 	go func() {
-		fmt.Println("broker.main: Starts server")
+		fmt.Println("broker.main: Start server")
 		if err := hs.ListenAndServe(); err != http.ErrServerClosed {
 			fmt.Printf("broker.main: Failed to serve: %v\n", err)
 		}
