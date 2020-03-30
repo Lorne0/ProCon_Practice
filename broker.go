@@ -41,8 +41,7 @@ func (bs *brokerServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	bs.mux.ServeHTTP(w, r)
 }
 
-// NewTopic adds new topic
-func (b *Broker) NewTopic(name string) {
+func (b *Broker) newTopic(name string) {
 	mu := &sync.RWMutex{}
 	t := &Topic{
 		Name: name,
@@ -50,16 +49,22 @@ func (b *Broker) NewTopic(name string) {
 		mu:   mu,
 	}
 	// Use mutex lock to lock writing
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	// b.mu.Lock()
+	// defer b.mu.Unlock()
+	// block outside...
 	b.topics[name] = t
 }
 
 func (b *Broker) readTopic(topic string, s int, e int) ([]interface{}, int, error) {
+	// Add broker lock to check the topic exist
+	b.mu.RLock()
 	if _, ok := b.topics[topic]; !ok {
+		b.mu.RUnlock()
 		return nil, -1, errors.New("the topic is not in broker")
 	}
-	// Use share lock instead of mutex lock to let multiple users read
+	b.mu.RUnlock()
+
+	// lock the topic
 	b.topics[topic].mu.RLock()
 	defer b.topics[topic].mu.RUnlock()
 	mq := b.topics[topic].MQ
@@ -132,16 +137,20 @@ func (bs *brokerServer) consumerHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (b *Broker) writeTopic(data postData) int {
+	// Add broker lock to check the topic exist
+	b.mu.Lock()
 	_, ok := b.topics[data.Topic]
 	if !ok {
-		b.NewTopic(data.Topic)
+		b.newTopic(data.Topic)
 	}
-	topic, _ := b.topics[data.Topic]
+	b.mu.Unlock()
+
 	// Use mutex lock to lock writing
-	topic.mu.Lock()
-	defer topic.mu.Unlock()
-	topic.MQ = append(topic.MQ, data.Data)
-	return len(topic.MQ)
+	b.topics[data.Topic].mu.Lock()
+	defer b.topics[data.Topic].mu.Unlock()
+
+	b.topics[data.Topic].MQ = append(b.topics[data.Topic].MQ, data.Data)
+	return len(b.topics[data.Topic].MQ)
 }
 
 func (bs *brokerServer) producerHandler(w http.ResponseWriter, r *http.Request) {
