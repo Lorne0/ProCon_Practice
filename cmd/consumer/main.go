@@ -3,7 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"procon"
+
+	"github.com/Lorne0/procon"
 )
 
 func main() {

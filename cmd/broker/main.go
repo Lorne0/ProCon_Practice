@@ -1,7 +1,7 @@
 package main
 
 import (
-	"procon"
+	"github.com/Lorne0/procon"
 )
 
 func main() {

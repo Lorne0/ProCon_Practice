@@ -1,6 +1,6 @@
 package main
 
-import "procon"
+import "github.com/Lorne0/procon"
 
 func main() {
 	WeatherBureau := procon.NewProducer()
